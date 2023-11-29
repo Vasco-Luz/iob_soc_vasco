@@ -36,6 +36,7 @@ board_server_install:
 	sudo cp scripts/board_server.py /usr/local/bin/ && \
         sudo cp scripts/board_server.service /etc/systemd/system/ && \
         sudo systemctl daemon-reload && \
+        sudo systemctl enable board_server && \
         sudo systemctl restart board_server
 
 board_server_uninstall:
@@ -45,3 +46,7 @@ board_server_uninstall:
         sudo rm /usr/local/bin/board_server.py && \
         sudo rm /etc/systemd/system/board_server.service && \
         sudo systemctl daemon-reload
+
+board_server_status:
+	sudo systemctl status board_server
+

@@ -22,9 +22,8 @@ DEBUG = False
 
 # Define the client's IP, port and version
 # Must match the server's
-HOST = "localhost"  # Use the loopback interface
 PORT = 50007  # Use the same port as the server
-VERSION = "V0.2"
+VERSION = "V0.3"
 
 # user and duration board is needed
 USER = os.environ["USER"]
@@ -50,15 +49,9 @@ def perror():
 
 # Function to form a request
 def form_request(command):
-    request = ""
-    if command == "grab":
-        request += f"{command} {USER} {DURATION} {VERSION}"
-    elif command == "release":
-        request += f"{command} {USER} {VERSION}"
-    elif command == "query":
-        request += f"{command} {VERSION}"
-    return request
-
+    #get name of the project directory, that is name of directry two levels up
+    directory = os.path.basename(os.path.dirname(os.path.dirname(os.getcwd())))
+    request = f"{command} {USER} {DURATION} {directory} {VERSION}"
 
 # Function to send the request
 def send_request(request):
@@ -95,6 +88,14 @@ def send_request(request):
             )
             time.sleep(time_remaining)
         else:
+            # If grab is successful, retrieve the console log file
+            if "Success" in response and "grabbed by" in response:
+                # Assuming the server sends the console log file name
+                console_log_file = response.split()[-1]
+                # Retrieve the console log file content
+                subprocess.run(f"scp {HOST}:{project_directory}/{console_log_file} .", shell=True)
+                print(f"Console output saved to {console_log_file}")
+
             break
 
 
@@ -146,8 +147,16 @@ def proc_wait(proc, timeout):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog="board_client.py",
-        description="Client to grab FPGA board and manage simulation and console processes.",
-        epilog="If -p is given then -c is required. If -s is given then -c is optional.",
+        description="TODO Client to grab FPGA board and manage simulation and console processes.",
+        epilog="TODO If -p is given then -c is required. If -s is given then -c is optional.",
+    )
+
+    # Add command argument with default value
+    parser.add_argument(
+        "host",
+        nargs="?",
+        default="localhost",
+        help='Host logical name or IP.',
     )
 
     # Add command argument with default value
@@ -166,51 +175,26 @@ if __name__ == "__main__":
         help="Duration in seconds to grab the board.",
     )
 
-    # Add -c argument
-    parser.add_argument(
-        "-c", "--console", default=None, help="Command to launch the console."
-    )
-
-    # Add -p argument
-    parser.add_argument(
-        "-p",
-        "--program",
-        default=None,
-        help="Command to program the FPGA. Cannot be used with `-s` argument. Requires `-c` argument aswell.",
-    )
-
     # Add -s argument
     parser.add_argument(
-        "-s",
-        "--simulate",
+        "-t",
+        "--target",
         default=None,
-        help="Command to run the simulator. Cannot be used with `-p` argument.",
+        help="Target: simulator or board name.",
     )
 
     # Assign arguments to variables
+    global HOST
+    HOST = parser.parse_args().host
     command = parser.parse_args().command
     DURATION = parser.parse_args().duration
-    console_command = parser.parse_args().console
-    fpga_prog_command = parser.parse_args().program
-    simulator_run_command = parser.parse_args().simulate
-
-    # Ensure either `-p` or `-s` is given with grab command, to either program fpga or run simulation, respectively.
-    assert command != "grab" or bool(fpga_prog_command) != bool(
-        simulator_run_command
-    ), f"{iob_colors.FAIL}Either `-p` or `-s` must be present with 'grab' command. (Cannot be both){iob_colors.ENDC}"
-
-    # Ensure -c is given with -p
-    assert (
-        not fpga_prog_command or console_command
-    ), f"{iob_colors.FAIL}Argument `-c` must be present with `-p`.{iob_colors.ENDC}"
+    target = parser.parse_args().target
 
     request = form_request(command)
     if DEBUG:
         print(f'{iob_colors.OKBLUE}DEBUG: Request is "{request}"{iob_colors.ENDC}')
 
-    # Don't send request if command is "grab" and we are in simulation mode
-    if command != "grab" or fpga_prog_command:
-        send_request(request)
+    send_request(request)
 
     if command == "grab":
         # Call `kill_processes()` when termination signals are received
@@ -219,8 +203,6 @@ if __name__ == "__main__":
     else:
         # End program if command is not "grab"
         sys.exit(0)
-
-    # Lines below will only run if command=="grab" and request successful
 
     # Launch simulator in the background if -s was given
     sim_proc = None

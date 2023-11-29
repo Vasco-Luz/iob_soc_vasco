@@ -63,12 +63,25 @@ def get_response(request):
             response = f"Board is grabbed by user {USER} for {time_remaining} seconds"
 
     elif request.startswith("grab"):
-        if board_status == "idle":
+       if board_status == "idle":
             board_status = "grabbed"
             grab_time = time.time()
             USER = request.split()[1]
             DURATION = request.split()[2]
-            response = f"Success: board grabbed by {USER} for {DURATION} seconds."
+            BUILD_DIR = request.split()[3]
+            VERSION = request.split()[4]
+
+            # Execute FPGA programming and console script on the server side
+            fpga_program_command = "your_fpga_program_command"  # Replace with the actual FPGA programming command
+            console_script_command = f"your_console_script_command {username} {project_directory} > iob_console.log &"  # Modify with the actual console script command
+
+            # Execute FPGA programming
+            subprocess.run(fpga_program_command, shell=True)
+
+            # Execute console script in the background
+            subprocess.Popen(console_script_command, shell=True)
+
+            response = f"Success: board grabbed by {USER} for {DURATION} seconds. FPGA programming and console script initiated on the server side."
         else:
             time_remaining = get_remaining_time()
             response = f"Failure: board grabbed by {USER} for {time_remaining} seconds."
